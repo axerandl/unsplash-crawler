@@ -62,12 +62,29 @@ def extract_and_save_imgs(browser, img_url, scroll, result_folder):
     imgs = extract_data(browser, img_url, scroll, a_selector)
     src = []
     for img in imgs:
-        img_id = img.get_attribute('href').split('/')[-1]
-        src.append('https://unsplash.com/photos/' +
-                   img_id + '/download?force=true')
-    browser.get(src[0])
+        try:
+            img_id = img.get_attribute('href').split('/')[-1]
+            src.append('https://unsplash.com/photos/' +
+                    img_id + '/download?force=true')
+        except exceptions.StaleElementReferenceException:
+            pass  
+
     for url in src[1:]:
-        browser.execute_script('window.open("{}", "_blank");'.format(url))
+        img_name = url.split('/')[-2] + '.jpg'
+        print('Downloading image %s...'% img_name)
+        image_data = requests.get(url)
+        try:
+            image_data.raise_for_status()
+        except Exception as e:
+            print('There is a problem with this image: ' + e)
+        
+        image_file = open(result_folder + img_name, 'wb')
+        
+        for chunk in image_data.iter_content(100000):
+            image_file.write(chunk)
+
+        image_file.close()
+        print('Download status: Ok!', end='\n\n')
 
 
 def extract_href_and_name(browser, scroll):

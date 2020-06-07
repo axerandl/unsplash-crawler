@@ -39,8 +39,8 @@ def scroll_webpage(driver, times):
 def extract_userinput(query):
 
     # Extract user-input
-    url = "https://unsplash.com/search/photos/" + \
-        query if len(query) > 1 else "https://unsplash.com"
+    url = "https://unsplash.com/s/photos/" + \
+        query + "?orientation=portrait" 
     return url
 
 

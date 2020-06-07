@@ -7,8 +7,10 @@ date_created: 14/2/2019
 import time
 from selenium.webdriver import Chrome
 from selenium.webdriver.chrome.options import Options
+from selenium.common import exceptions  
 import urllib.request
 import pathlib
+import requests
 import os
 
 
@@ -71,7 +73,7 @@ def extract_and_save_imgs(browser, img_url, scroll, result_folder):
 
     for url in src[1:]:
         img_name = url.split('/')[-2] + '.jpg'
-        print('Downloading image %s...'% img_name)
+        print('Downloading %s'% img_name)
         image_data = requests.get(url)
         try:
             image_data.raise_for_status()

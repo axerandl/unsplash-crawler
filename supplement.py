@@ -7,11 +7,14 @@ date_created: 14/2/2019
 import time
 from selenium.webdriver import Chrome
 from selenium.webdriver.chrome.options import Options
-from selenium.common import exceptions  
+from selenium.common import exceptions
 import urllib.request
 import pathlib
 import requests
 import os
+
+UNSPLASH = 1
+PEXELS = 2
 
 
 def scroll_webpage(driver, times):
@@ -38,11 +41,13 @@ def scroll_webpage(driver, times):
         count += 1
 
 
-def extract_userinput(query):
-
-    # Extract user-input
-    url = "https://unsplash.com/s/photos/" + \
-        query + "?orientation=portrait" 
+def extract_userinput(query, site):
+    if site == UNSPLASH:
+        url = "https://unsplash.com/s/photos/" + \
+            query + "?orientation=portrait"
+    elif site == PEXELS:
+        url = "https://www.pexels.com/search/" + \
+            query + "?orientation=portrait"
     return url
 
 
@@ -56,37 +61,70 @@ def extract_data(browser, url, scroll, css_selector):
     return browser.find_elements_by_css_selector(css_selector)
 
 
-def extract_and_save_imgs(browser, img_url, scroll, result_folder):
+def extract_and_save_imgs(site, browser, img_url, scroll, result_folder):
     # Save img
     # Make folder
     pathlib.Path(result_folder).mkdir(parents=True, exist_ok=True)
-    a_selector = "a[itemprop='contentUrl']"
-    imgs = extract_data(browser, img_url, scroll, a_selector)
-    src = []
-    for img in imgs:
-        try:
-            img_id = img.get_attribute('href').split('/')[-1]
-            src.append('https://unsplash.com/photos/' +
-                    img_id + '/download?force=true')
-        except exceptions.StaleElementReferenceException:
-            pass  
 
-    for url in src[1:]:
-        img_name = url.split('/')[-2] + '.jpg'
-        print('Downloading %s'% img_name)
-        image_data = requests.get(url)
+    pexels_selector = "img.photo-item__img"
+    unsplash_selector = "a[itemprop='contentUrl']"
+
+    if site == UNSPLASH:
+        selector = unsplash_selector
+    elif site == PEXELS:
+        selector = pexels_selector
+
+    imgs = extract_data(browser, img_url, scroll, selector)
+
+    src = []
+    if site == UNSPLASH:
+        for img in imgs:
+            try:
+                img_id = img.get_attribute('href').split('/')[-1]
+                src.append('https://unsplash.com/photos/' +
+                           img_id + '/download?force=true')
+            except exceptions.StaleElementReferenceException:
+                pass
+    elif site == PEXELS:
+        for img in imgs:
+            try:
+                url = img.get_attribute('src')
+                url = "https://static." + \
+                    url.split("images.")[1].split("?")[0]
+                src.append(url)
+            except exceptions.StaleElementReferenceException:
+                pass
+
+    for url in src:
+        if site == UNSPLASH:
+            img_name = url.split('/')[-2] + '.jpg'
+        elif site == PEXELS:
+            img_name = url.split("/")[-1].split('-')[-1]
+
+        while img_name.startswith('_') or img_name.startswith('-'):
+            img_name = img_name[1:]
+
+        print('Downloading %s' % img_name)
+
         try:
-            image_data.raise_for_status()
-        except Exception as e:
-            print('There is a problem with this image: ' + e)
-        
+            image_data = requests.get(url)
+        except requests.exceptions.RequestException as e:
+            print('\tError: ' + e)
+            pass
+
+        # image_data = requests.get(url)
+        # try:
+        #     image_data.raise_for_status()
+        # except Exception as e:
+        #     print('There is a problem with this image: ' + e)
+
         image_file = open(result_folder + img_name, 'wb')
-        
+
         for chunk in image_data.iter_content(100000):
             image_file.write(chunk)
 
         image_file.close()
-        print('Download status: Ok!', end='\n\n')
+        print('\tSuccess', end='\n\n')
 
 
 def extract_href_and_name(browser, scroll):
@@ -115,6 +153,7 @@ def extract_href_and_name(browser, scroll):
 def load_more(browser):
     button = browser.find_element_by_xpath(
         "//button[@class='_37zTg _1l4Hh _1CBrG _3TTOE NDx0k _2Xklx']")
+    print(button)
     browser.execute_script("arguments[0].click();", button)
 
 
